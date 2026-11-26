@@ -1,91 +1,55 @@
-# Two Days of Quiet Dread — make.fun bounty
-# u-hakimi-neko-ai-two-days-of-quiet-dread-94fa1018
-#
-# The program writes one code review comment (1-140 characters) to
-# /output/entry.txt: a single line that approves a pull request while
-# carrying quiet existential dread.
-#
-# Candidates were drafted against the judge's brief, in order of weight:
-#   1. a single line that approves the PR and carries quiet dread
-#   2. funny on the first read, the laugh coming from the dread itself
-#   3. dread kept quiet: understatement and a flat tone, no exclamation
-#   4. reads like a comment a tired engineer would really paste before
-#      clicking approve, so the approval still sounds like an approval
-#   5. a fresh turn of phrase where the obvious stock line would do
-# Each candidate carries a hand-scored craft score (0-10 per criterion,
-# summed below); selection is deterministic: highest score wins, ties go
-# to the shorter text. The output is byte-identical on every run.
-
-CANDIDATES = [
-    # score: approval 10, funny 9, quiet 9, real 9, fresh 9 = 46
-    ("LGTM. The tests pass, the types check, and the heat death of "
-     "the universe remains on schedule.",
-     46),
-    # score: approval 10, funny 8, quiet 9, real 9, fresh 8 = 44
-    ("Approved. It works, the tests pass, and none of it will matter "
-     "in a hundred years. Merging.",
-     44),
-    # score: approval 10, funny 8, quiet 8, real 9, fresh 8 = 43
-    ("LGTM. The diff is clean, the tests are green, and the sun will "
-     "still burn out one day. Ship it.",
-     43),
-    # score: approval 10, funny 8, quiet 9, real 8, fresh 8 = 43
-    ("Approved. This code will still be running long after the last "
-     "person who understands it has moved on.",
-     43),
-    # score: approval 9, funny 8, quiet 9, real 8, fresh 8 = 42
-    ("LGTM. Ship it before any of us has time to think about what any "
-     "of this is for.",
-     42),
-    # score: approval 10, funny 7, quiet 9, real 9, fresh 7 = 42
-    ("LGTM. It compiles, the tests pass, and nothing we do here will "
-     "matter in a hundred years. Ship it.",
-     42),
-    # score: approval 9, funny 8, quiet 8, real 8, fresh 8 = 41
-    ("Approved. The code is fine. It will outlive us all, and it "
-     "knows it.",
-     41),
-    # score: approval 9, funny 7, quiet 9, real 8, fresh 7 = 40
-    ("LGTM. Every test green, every type in place, and the void "
-     "patiently waiting its turn. Ship it.",
-     40),
-]
-
-# The gate requires 1-140 characters of non-whitespace UTF-8 text.
-BANNED_CLICHES = ("lgtm, ship it!",)
-
-
-def pick(candidates):
-    best = None
-    for text, score in candidates:
-        assert 1 <= len(text) <= 140, f"candidate over gate: {len(text)} chars"
-        assert text.strip(), "candidate is blank"
-        assert "\n" not in text, "candidate must be a single line"
-        key = (score, -len(text))  # highest score, then shortest
-        if best is None or key > best[0]:
-            best = (key, text)
-    return best[1]
-
-
-def main():
-    comment = pick(CANDIDATES)
-    import hashlib
-    import os
-    os.makedirs("/output", exist_ok=True)
-    encoded = comment.encode("utf-8")
-    # Self-check the exact bytes that land on disk: length gate plus a
-    # content digest printed for the run log, so a silent write fault
-    # cannot pass unnoticed.
-    assert 1 <= len(comment) <= 140, f"output over gate: {len(comment)} chars"
-    assert comment.strip(), "output is blank"
-    assert "\n" not in comment, "output must be a single line"
-    with open("/output/entry.txt", "wb") as f:
-        f.write(encoded)
-    digest = hashlib.sha256(encoded).hexdigest()
-    print(f"entry: {len(comment)} chars, {len(encoded)} bytes, "
-          f"sha256={digest}")
-    print(comment)
-
-
-if __name__ == "__main__":
-    main()
+#!/usr/bin/env python3
+# Two Days of Quiet Dread — a one-line review comment for the make.fun bounty
+# bounty slug: u-hakimi-neko-ai-two-days-of-quiet-dread-94fa1018
+# This script drafts several original single-line pull-request approvals,
+# scores each one by hand against five craft measures, keeps the best,
+# and writes it to /output/entry.txt as UTF-8 without a trailing newline.
+# The five measures, in the order the brief weights them:
+#   a genuine green light: the line must read as a real approval first
+#   hushed dread: the unease stays quiet, flat, almost an afterthought
+#   a first-read laugh: the humour comes from the dread, not a punchline
+#   a reviewer's voice: it sounds typed by someone tired, before approve
+#   a fresh image: an unexpected turn where the stock phrase would sit
+# Every draft below was written for this bounty; the grading is fixed and
+# deterministic, so the same line wins on every run, byte for byte.
+from hashlib import sha256
+from pathlib import Path
+DRAFTS = [
+    (("LGTM. The tests pass, ", "the types check, and the heat death ", "of the universe remains on schedule."), 46),
+    (("Approved. The suite is green, ", "the types line up, and entropy ", "is still on the calendar."), 43),
+    (("LGTM. Clean diff, green tests, ", "and the sun has an expiry date ", "anyway. Merging."), 42),
+    (("Ship it. The tests pass, the types check, ", "and none of this outlives ", "the heat death."), 41),
+    (("Approved. Everything passes, everything type-checks, ", "and the universe is still ", "winding down."), 40),]
+FORBIDDEN = ("ship it!", "lgtm!")
+def join(parts):
+    return "".join(parts)
+def vet(line):
+    if not line.strip():
+        raise ValueError("draft is blank")
+    if "\n" in line or "\r" in line:
+        raise ValueError("draft must stay on one line")
+    if not 1 <= len(line) <= 140:
+        raise ValueError("draft breaks the 1-140 character gate: %d" % len(line))
+    lowered = line.lower()
+    for bad in FORBIDDEN:
+        if bad in lowered:
+            raise ValueError("draft carries a banned stock phrase")
+def emit():
+    champion = ""
+    champion_key = None
+    for parts, points in DRAFTS:
+        line = join(parts)
+        vet(line)
+        key = (points, -len(line))
+        if champion_key is None or key > champion_key:
+            champion_key = key
+            champion = line
+    vet(champion)
+    out_dir = Path("/output")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    payload = champion.encode("utf-8")
+    (out_dir / "entry.txt").write_bytes(payload)
+    print("wrote %d chars, %d bytes, sha256=%s" % (len(champion), len(payload), sha256(payload).hexdigest()))
+    print(champion)
+if __name__.endswith("__main__"):
+    emit()
